@@ -1,0 +1,51 @@
+{
+  "file": "queries/my_query.sql",
+  "reviewed_at": "2026-05-25T16:03:25.257943",
+  "issues_found": 5,
+  "review": {
+    "issues": [
+      {
+        "severity": "Critical",
+        "category": "Correctness",
+        "title": "Integer division truncation",
+        "line": "x / total_count * 100 AS y",
+        "problem": "Integer division truncates the result, leading to incorrect failure rates.",
+        "fix": "CAST(x AS DECIMAL) / total_count * 100 AS failure_rate"
+      },
+      {
+        "severity": "Critical",
+        "category": "Security",
+        "title": "PII exposure",
+        "line": "c.email",
+        "problem": "Exposing customer email addresses without any filter or business need.",
+        "fix": "Remove 'c.email' from the SELECT clause."
+      },
+      {
+        "severity": "High",
+        "category": "Performance",
+        "title": "Correlated subquery",
+        "line": "(SELECT COUNT(*) FROM fact_transactions f2 WHERE f2.status = 'FAILED' AND f2.payment_method = t.payment_method AND f2.transaction_date = t.transaction_date) AS x",
+        "problem": "Correlated subquery re-scans the table for every row, leading to poor performance.",
+        "fix": "Use a window function or CTE to calculate the count."
+      },
+      {
+        "severity": "Medium",
+        "category": "Readability",
+        "title": "Cryptic column names",
+        "line": "x / total_count * 100 AS y",
+        "problem": "Column names 'x' and 'y' have no meaning, making the query hard to understand.",
+        "fix": "Use meaningful names like 'failed_count' and 'failure_rate'."
+      },
+      {
+        "severity": "Medium",
+        "category": "Readability",
+        "title": "Implicit join syntax",
+        "line": "FROM fact_transactions t, dim_customer c",
+        "problem": "Implicit join syntax is less readable and more prone to errors.",
+        "fix": "Use explicit JOIN syntax: FROM fact_transactions t JOIN dim_customer c ON t.customer_id = c.customer_id"
+      }
+    ],
+    "corrected_sql": "WITH failed_transactions AS (SELECT payment_method, transaction_date, COUNT(*) AS failed_count FROM fact_transactions WHERE status = 'FAILED' GROUP BY payment_method, transaction_date)\nSELECT t.transaction_date,\n       t.payment_method,\n       COUNT(*) AS total_count,\n       COALESCE(ft.failed_count, 0) AS failed_count,\n       COALESCE(ft.failed_count, 0) * 1.0 / COUNT(*) * 100 AS failure_rate\nFROM fact_transactions t\nLEFT JOIN failed_transactions ft ON t.payment_method = ft.payment_method AND t.transaction_date = ft.transaction_date\nGROUP BY t.transaction_date, t.payment_method\nORDER BY t.transaction_date;",
+    "summary": "The query had critical issues with security and correctness, high performance issues, and medium readability issues. The corrected query addresses these issues and provides accurate failure rates without exposing PII."
+  }
+}

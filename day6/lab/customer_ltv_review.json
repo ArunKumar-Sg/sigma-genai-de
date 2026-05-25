@@ -1,0 +1,43 @@
+{
+  "file": "queries/customer_ltv.sql",
+  "reviewed_at": "2026-05-25T16:03:05.172890",
+  "issues_found": 4,
+  "review": {
+    "issues": [
+      {
+        "severity": "Critical",
+        "category": "Security",
+        "title": "Exposes customer email (PII)",
+        "line": "SELECT c.customer_name, c.email, c.tier,",
+        "problem": "The query exposes customer email addresses, which is considered Personally Identifiable Information (PII).",
+        "fix": "Remove c.email from the SELECT clause."
+      },
+      {
+        "severity": "High",
+        "category": "Correctness",
+        "title": "LEFT JOIN + WHERE on right table silently converts to INNER JOIN",
+        "line": "WHERE t.status = 'COMPLETED'",
+        "problem": "The LEFT JOIN combined with the WHERE clause on the right table effectively converts the join to an INNER JOIN, potentially excluding customers with no completed transactions.",
+        "fix": "Use a CASE statement to handle the status condition within the SUM aggregation."
+      },
+      {
+        "severity": "High",
+        "category": "Correctness",
+        "title": "GROUP BY missing c.tier \u2014 will error in strict SQL engines",
+        "line": "GROUP BY c.customer_name, c.email",
+        "problem": "The GROUP BY clause is missing c.tier, which will cause an error in strict SQL engines.",
+        "fix": "Include c.tier in the GROUP BY clause."
+      },
+      {
+        "severity": "Medium",
+        "category": "Performance",
+        "title": "No date filter \u2014 full table scan",
+        "line": "FROM dim_customer c\nLEFT JOIN fact_transactions t ON c.customer_id = t.customer_id",
+        "problem": "The query performs a full table scan on fact_transactions without any date filter, which can be inefficient.",
+        "fix": "Add a date filter to limit the rows scanned."
+      }
+    ],
+    "corrected_sql": "SELECT c.customer_name, c.tier,\n       SUM(CASE WHEN t.status = 'COMPLETED' THEN t.amount ELSE 0 END) as lifetime_value,\n       COUNT(t.transaction_id) as total_orders\nFROM dim_customer c\nLEFT JOIN fact_transactions t ON c.customer_id = t.customer_id\nGROUP BY c.customer_name, c.email, c.tier\nHAVING SUM(CASE WHEN t.status = 'COMPLETED' THEN t.amount ELSE 0 END) > 1000\nORDER BY lifetime_value DESC;",
+    "summary": "The query had security, correctness, and performance issues. The corrected version removes PII, fixes the join logic, includes all GROUP BY columns, and suggests adding a date filter for performance."
+  }
+}

@@ -1,0 +1,70 @@
+
+============================================================
+CONTEXT ABLATION EXPERIMENTS
+============================================================
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+EXPERIMENT: Removed 'Revenue business rule'
+Question: What is the net settled amount excluding held transactions?
+
+[Nova Pro] Generating SQL for: 'What is the net settled amount excluding held transactions?'
+[Nova Pro] Explanation: Calculate the total amount of transactions that have been completed, excluding those that are held.
+[Nova Pro] SQL:
+SELECT 
+    SUM(CASE WHEN STATUS = 'COMPLETED' THEN AMOUNT ELSE 0 END) AS NET_SETTLED_AMOUNT_USD
+FROM FACT_TRANSACTIONS
+WHERE STATUS = 'COMPLETED';
+[Nova Pro] Tokens: 805 in / 76 out
+SQL generated: SELECT 
+    SUM(CASE WHEN STATUS = 'COMPLETED' THEN AMOUNT ELSE 0 END) AS NET_SETTLED_AMOUNT_USD
+FROM FACT_TRANSACTIONS
+WHERE STATUS = 'COMPLETED';
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+EXPERIMENT: Removed 'JOIN relationship hint'
+Question: Which merchant had the most transactions?
+
+[Nova Pro] Generating SQL for: 'Which merchant had the most transactions?'
+[Nova Pro] Explanation: This query identifies the merchant with the highest number of transactions by joining the FACT_TRANSACTIONS and DIM_MERCHANT tables, filtering transactions within the specified date range, and grouping by merchant name.
+[Nova Pro] SQL:
+SELECT M.MERCHANT_NAME, COUNT(*) AS TRANSACTION_COUNT
+FROM FACT_TRANSACTIONS T
+JOIN DIM_MERCHANT M ON T.MERCHANT_ID = M.MERCHANT_ID
+WHERE T.TRANSACTION_DATE BETWEEN '2024-01-15' AND '2024-01-31'
+GROUP BY M.MERCHANT_NAME
+ORDER BY TRANSACTION_COUNT DESC
+LIMIT 1;
+[Nova Pro] Tokens: 801 in / 157 out
+SQL generated: SELECT M.MERCHANT_NAME, COUNT(*) AS TRANSACTION_COUNT
+FROM FACT_TRANSACTIONS T
+JOIN DIM_MERCHANT M ON T.MERCHANT_ID = M.MERCHANT_ID
+WHERE T.TRANSACTION_DATE BETWEEN '2024-01-15' AND '2024-01-31'
+GROUP BY M.MERCHANT_NAME
+ORDER BY TRANSACTION_COUNT DESC
+LIMIT 1;
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+EXPERIMENT: Removed 'Few-shot examples'
+Question: Show failure rate by payment method
+
+[Nova Pro] Generating SQL for: 'Show failure rate by payment method'
+[Nova Pro] Explanation: Show the failure rate by payment method, calculated as the percentage of failed transactions out of the total transactions for each payment method.
+[Nova Pro] SQL:
+SELECT PAYMENT_METHOD,
+       COUNT(*) AS TOTAL_TRANSACTIONS,
+       SUM(CASE WHEN STATUS='FAILED' THEN 1 ELSE 0 END) AS FAILED_TRANSACTIONS,
+       ROUND(100.0 * SUM(CASE WHEN STATUS='FAILED' THEN 1 ELSE 0 END) / COUNT(*), 2) AS FAILURE_RATE_PCT
+FROM FACT_TRANSACTIONS
+GROUP BY PAYMENT_METHOD
+ORDER BY FAILURE_RATE_PCT DESC;
+[Nova Pro] Tokens: 816 in / 146 out
+SQL generated: SELECT PAYMENT_METHOD,
+       COUNT(*) AS TOTAL_TRANSACTIONS,
+       SUM(CASE WHEN STATUS='FAILED' THEN 1 ELSE 0 END) AS FAILED_TRANSACTIONS,
+       ROUND(100.0 * SUM(CASE WHEN STATUS='FAILED' THEN 1 ELSE 0 END) / COUNT(*), 2) AS FAILURE_RATE_PCT
+FROM FACT_TRANSACTIONS
+GROUP BY PAYMENT_METHOD
+ORDER BY FAILURE_RATE_PCT DESC;
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!

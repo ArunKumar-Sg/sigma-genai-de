@@ -1,0 +1,188 @@
+{
+  "directory": "queries/",
+  "reviewed_at": "2026-05-25T16:03:32.600134",
+  "files_reviewed": 4,
+  "total_issues": 17,
+  "files": [
+    {
+      "file": "queries/customer_ltv.sql",
+      "reviewed_at": "2026-05-25T16:03:05.172890",
+      "issues_found": 4,
+      "review": {
+        "issues": [
+          {
+            "severity": "Critical",
+            "category": "Security",
+            "title": "Exposes customer email (PII)",
+            "line": "SELECT c.customer_name, c.email, c.tier,",
+            "problem": "The query exposes customer email addresses, which is considered Personally Identifiable Information (PII).",
+            "fix": "Remove c.email from the SELECT clause."
+          },
+          {
+            "severity": "High",
+            "category": "Correctness",
+            "title": "LEFT JOIN + WHERE on right table silently converts to INNER JOIN",
+            "line": "WHERE t.status = 'COMPLETED'",
+            "problem": "The LEFT JOIN combined with the WHERE clause on the right table effectively converts the join to an INNER JOIN, potentially excluding customers with no completed transactions.",
+            "fix": "Use a CASE statement to handle the status condition within the SUM aggregation."
+          },
+          {
+            "severity": "High",
+            "category": "Correctness",
+            "title": "GROUP BY missing c.tier \u2014 will error in strict SQL engines",
+            "line": "GROUP BY c.customer_name, c.email",
+            "problem": "The GROUP BY clause is missing c.tier, which will cause an error in strict SQL engines.",
+            "fix": "Include c.tier in the GROUP BY clause."
+          },
+          {
+            "severity": "Medium",
+            "category": "Performance",
+            "title": "No date filter \u2014 full table scan",
+            "line": "FROM dim_customer c\nLEFT JOIN fact_transactions t ON c.customer_id = t.customer_id",
+            "problem": "The query performs a full table scan on fact_transactions without any date filter, which can be inefficient.",
+            "fix": "Add a date filter to limit the rows scanned."
+          }
+        ],
+        "corrected_sql": "SELECT c.customer_name, c.tier,\n       SUM(CASE WHEN t.status = 'COMPLETED' THEN t.amount ELSE 0 END) as lifetime_value,\n       COUNT(t.transaction_id) as total_orders\nFROM dim_customer c\nLEFT JOIN fact_transactions t ON c.customer_id = t.customer_id\nGROUP BY c.customer_name, c.email, c.tier\nHAVING SUM(CASE WHEN t.status = 'COMPLETED' THEN t.amount ELSE 0 END) > 1000\nORDER BY lifetime_value DESC;",
+        "summary": "The query had security, correctness, and performance issues. The corrected version removes PII, fixes the join logic, includes all GROUP BY columns, and suggests adding a date filter for performance."
+      }
+    },
+    {
+      "file": "queries/daily_failure_rate.sql",
+      "reviewed_at": "2026-05-25T16:03:13.965674",
+      "issues_found": 4,
+      "review": {
+        "issues": [
+          {
+            "severity": "Critical",
+            "category": "Correctness",
+            "title": "Integer division",
+            "line": "failed_count / total_count * 100 AS failure_rate",
+            "problem": "Integer division will truncate the decimal part, leading to incorrect failure rates for values less than 100%.",
+            "fix": "CAST(failed_count AS DECIMAL(10,2)) / total_count * 100 AS failure_rate"
+          },
+          {
+            "severity": "High",
+            "category": "Correctness",
+            "title": "Reference alias in same SELECT clause",
+            "line": "failed_count / total_count * 100 AS failure_rate",
+            "problem": "Referencing an alias in the same SELECT clause can cause errors in most SQL engines.",
+            "fix": "failed_count * 100.0 / total_count AS failure_rate"
+          },
+          {
+            "severity": "Medium",
+            "category": "Performance",
+            "title": "Correlated subquery",
+            "line": "(SELECT COUNT(*) FROM fact_transactions f2 WHERE f2.status = 'FAILED' AND f2.transaction_date = t.transaction_date) AS failed_count",
+            "problem": "The correlated subquery re-scans the full table for each row in the outer query, which can be very inefficient.",
+            "fix": "Use a JOIN with a pre-aggregated subquery instead of a correlated subquery."
+          },
+          {
+            "severity": "Low",
+            "category": "Readability",
+            "title": "Lack of comments",
+            "line": "Entire query",
+            "problem": "The query lacks comments explaining the logic and calculations, making it harder to understand.",
+            "fix": "Add comments to explain the purpose of each part of the query."
+          }
+        ],
+        "corrected_sql": "WITH failed_transactions AS (\n  SELECT transaction_date, COUNT(*) AS failed_count\n  FROM fact_transactions\n  WHERE status = 'FAILED'\n  GROUP BY transaction_date\n)\nSELECT t.transaction_date,\n       COALESCE(f.failed_count, 0) AS failed_count,\n       COUNT(*) AS total_count,\n       COALESCE(f.failed_count, 0) * 100.0 / COUNT(*) AS failure_rate\nFROM fact_transactions t\nLEFT JOIN failed_transactions f ON t.transaction_date = f.transaction_date\nGROUP BY t.transaction_date\nORDER BY t.transaction_date;",
+        "summary": "The query had issues with integer division, referencing aliases in the same SELECT clause, and performance due to a correlated subquery. Additionally, it lacked comments for readability."
+      }
+    },
+    {
+      "file": "queries/my_query.sql",
+      "reviewed_at": "2026-05-25T16:03:25.257943",
+      "issues_found": 5,
+      "review": {
+        "issues": [
+          {
+            "severity": "Critical",
+            "category": "Correctness",
+            "title": "Integer division truncation",
+            "line": "x / total_count * 100 AS y",
+            "problem": "Integer division truncates the result, leading to incorrect failure rates.",
+            "fix": "CAST(x AS DECIMAL) / total_count * 100 AS failure_rate"
+          },
+          {
+            "severity": "Critical",
+            "category": "Security",
+            "title": "PII exposure",
+            "line": "c.email",
+            "problem": "Exposing customer email addresses without any filter or business need.",
+            "fix": "Remove 'c.email' from the SELECT clause."
+          },
+          {
+            "severity": "High",
+            "category": "Performance",
+            "title": "Correlated subquery",
+            "line": "(SELECT COUNT(*) FROM fact_transactions f2 WHERE f2.status = 'FAILED' AND f2.payment_method = t.payment_method AND f2.transaction_date = t.transaction_date) AS x",
+            "problem": "Correlated subquery re-scans the table for every row, leading to poor performance.",
+            "fix": "Use a window function or CTE to calculate the count."
+          },
+          {
+            "severity": "Medium",
+            "category": "Readability",
+            "title": "Cryptic column names",
+            "line": "x / total_count * 100 AS y",
+            "problem": "Column names 'x' and 'y' have no meaning, making the query hard to understand.",
+            "fix": "Use meaningful names like 'failed_count' and 'failure_rate'."
+          },
+          {
+            "severity": "Medium",
+            "category": "Readability",
+            "title": "Implicit join syntax",
+            "line": "FROM fact_transactions t, dim_customer c",
+            "problem": "Implicit join syntax is less readable and more prone to errors.",
+            "fix": "Use explicit JOIN syntax: FROM fact_transactions t JOIN dim_customer c ON t.customer_id = c.customer_id"
+          }
+        ],
+        "corrected_sql": "WITH failed_transactions AS (SELECT payment_method, transaction_date, COUNT(*) AS failed_count FROM fact_transactions WHERE status = 'FAILED' GROUP BY payment_method, transaction_date)\nSELECT t.transaction_date,\n       t.payment_method,\n       COUNT(*) AS total_count,\n       COALESCE(ft.failed_count, 0) AS failed_count,\n       COALESCE(ft.failed_count, 0) * 1.0 / COUNT(*) * 100 AS failure_rate\nFROM fact_transactions t\nLEFT JOIN failed_transactions ft ON t.payment_method = ft.payment_method AND t.transaction_date = ft.transaction_date\nGROUP BY t.transaction_date, t.payment_method\nORDER BY t.transaction_date;",
+        "summary": "The query had critical issues with security and correctness, high performance issues, and medium readability issues. The corrected query addresses these issues and provides accurate failure rates without exposing PII."
+      }
+    },
+    {
+      "file": "queries/revenue_report.sql",
+      "reviewed_at": "2026-05-25T16:03:32.596757",
+      "issues_found": 4,
+      "review": {
+        "issues": [
+          {
+            "severity": "Critical",
+            "category": "Correctness",
+            "title": "Missing STATUS = 'COMPLETED' filter",
+            "line": "WHERE clause",
+            "problem": "The query is counting all transactions as revenue, including failed ones, which is incorrect.",
+            "fix": "WHERE t.status = 'COMPLETED' AND t.transaction_date > '2024-01-01'"
+          },
+          {
+            "severity": "Medium",
+            "category": "Performance",
+            "title": "Implicit JOIN syntax",
+            "line": "FROM clause",
+            "problem": "Using implicit JOIN syntax can lead to confusion and potential errors. It's better to use explicit JOIN syntax.",
+            "fix": "FROM fact_transactions t JOIN dim_merchant m ON t.merchant_id = m.merchant_id"
+          },
+          {
+            "severity": "Medium",
+            "category": "Correctness",
+            "title": "ORDER BY ascending",
+            "line": "ORDER BY clause",
+            "problem": "The query orders by total_revenue in ascending order, which is incorrect for a 'top 10' use case. It should be descending.",
+            "fix": "ORDER BY total_revenue DESC"
+          },
+          {
+            "severity": "Low",
+            "category": "Readability",
+            "title": "Lack of comments on complex logic",
+            "line": "Entire query",
+            "problem": "The query lacks comments explaining the logic, which can make it harder to understand for other developers.",
+            "fix": "Add comments explaining the purpose of each part of the query."
+          }
+        ],
+        "corrected_sql": "-- Revenue report by merchant\nSELECT m.merchant_name,\n       SUM(t.amount) as total_revenue,\n       COUNT(*) as txn_count\nFROM fact_transactions t\nJOIN dim_merchant m ON t.merchant_id = m.merchant_id\nWHERE t.status = 'COMPLETED' AND t.transaction_date > '2024-01-01'\nGROUP BY m.merchant_name\nORDER BY total_revenue DESC\nLIMIT 10;",
+        "summary": "The query had issues with correctness and performance, and lacked readability. The corrected query now properly filters for completed transactions, uses explicit JOIN syntax, orders by descending revenue, and includes comments."
+      }
+    }
+  ]
+}
