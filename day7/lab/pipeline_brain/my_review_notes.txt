@@ -1,0 +1,129 @@
+================================================================
+Code Review Notes — generated_pipeline.py
+Reviewer  : Student (Day 7 Lab)
+Review date: 2026-05-26
+Fixed file : pipeline_brain/fixed_pipeline.py
+================================================================
+
+ORIGINAL REVIEW SCORES (first run — before student edits)
+  PASS: 7 | FAIL: 2 | WARN: 3
+  Recommendation: APPROVE_WITH_CHANGES
+
+UPDATED REVIEW SCORES (second run — after path + import fixes)
+  PASS: 10 | FAIL: 1 | WARN: 2
+  Recommendation: APPROVE_WITH_CHANGES
+
+================================================================
+FIXES APPLIED IN fixed_pipeline.py
+================================================================
+
+FIX 1 — ERROR_HANDLING (was: FAIL)
+---------------------------------------------------------------
+Problem:
+  Every pipeline function (ingest_bronze, transform_silver,
+  build_merchant_performance, build_customer_ltv,
+  build_daily_summary, run_gold) contained raw Spark reads
+  and writes with zero error handling. A single bad partition,
+  network blip, or malformed record would crash the entire
+  pipeline silently — with no logged error and no way to know
+  *which* stage failed.
+
+Change made:
+  Wrapped every pipeline function body in a try/except block.
+  On success: normal execution continues.
+  On failure: logging.error() logs the stage name + exception
+              message, then re-raises so the caller (Airflow,
+              Glue, etc.) can also catch and alert.
+
+Why this matters in production:
+  Without try/except you lose observability. A Data Engineer
+  waking up at 2 AM to a failed DAG has no idea where it broke.
+  With per-stage error logging the on-call engineer sees exactly
+  which function failed and why in the first log line.
+
+Before (example):
+  def ingest_bronze(spark, input_path, output_path, run_date, run_id):
+      transactions_df = spark.read...
+      transactions_df.write...
+
+After:
+  def ingest_bronze(spark, input_path, output_path, run_date, run_id):
+      try:
+          logging.info("[ingest_bronze] Starting ingestion")
+          transactions_df = spark.read...
+          transactions_df.write...
+          logging.info("[ingest_bronze] Complete — rows: ...")
+      except Exception as e:
+          logging.error(f"[ingest_bronze] FAILED: {e}")
+          raise
+
+----------------------------------------------------------------
+
+FIX 2 — ROW_COUNT_LOGGING (was: WARN)
+---------------------------------------------------------------
+Problem:
+  No .count() or logging statement appeared after any
+  transformation stage. This means a pipeline "succeeding"
+  could silently write zero rows (e.g., because a filter was
+  wrong or the source partition was empty). There is no way to
+  detect data drift or partial failures after the fact.
+
+Change made:
+  Added a logging.info() call with .count() at the end of every
+  stage, reporting the number of rows written to that layer.
+
+  Stages updated:
+    - ingest_bronze      → logs transaction + promotion counts
+    - transform_silver   → logs silver transaction + promotion counts
+    - build_merchant_performance → logs merchant aggregation row count
+    - build_customer_ltv         → logs customer LTV row count
+    - build_daily_summary        → logs daily summary row count
+
+Why this matters in production:
+  Row count logging is the cheapest form of data quality
+  monitoring. A sudden drop from 500 k rows to 12 rows tells
+  the DE that something upstream broke, even before any alert
+  fires. It is also required for SLA dashboards and audit trails.
+
+Before (example):
+  merchant_performance_df.write.partitionBy(...).parquet(output_path)
+  # (nothing logged)
+
+After:
+  merchant_performance_df.write.partitionBy(...).parquet(output_path)
+  logging.info(f"[build_merchant_performance] Complete — rows: {merchant_performance_df.count()}")
+
+================================================================
+ITEMS NOT FIXED (kept as-is, with rationale)
+================================================================
+
+WARN — SCHEMA_VALIDATION
+  Adding Spark schema validation (StructType assertions or
+  .schema vs expected_schema comparisons) before transformations
+  would be the ideal next step. Skipped here because it requires
+  defining the authoritative schema separately, which is outside
+  the scope of this lab exercise.
+
+WARN — NULL_HANDLING (Gold layer)
+  The Gold functions (build_merchant_performance, build_daily_summary)
+  read from the already-filtered Silver layer, so primary-key
+  nulls are already eliminated upstream. Adding an explicit
+  .dropna() on Gold reads would be belt-and-suspenders hardening
+  for a future PR.
+
+================================================================
+WHAT I LEARNED
+================================================================
+
+1. AI-generated pipelines are structurally sound (correct
+   medallion layers, correct Spark idioms) but skip "defensive"
+   engineering by default — error handling and observability
+   must be added by the engineer.
+
+2. The 12-point checklist catches 80% of production risk in
+   30 seconds. The remaining 20% (business-rule correctness,
+   partition boundary idempotency) still requires human review.
+
+3. Row count logging costs one extra Spark action per stage but
+   saves hours of debugging in production — always worth it.
+================================================================

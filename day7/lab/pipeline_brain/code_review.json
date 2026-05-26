@@ -4,99 +4,111 @@
       "id": 1,
       "name": "IDEMPOTENCY",
       "status": "PASS",
-      "finding": "All write operations use partitionBy which implies overwrite mode.",
-      "fix": "None needed."
+      "evidence": "No violation found",
+      "finding": "All writes use partitionBy() without append mode.",
+      "fix": "None required."
     },
     {
       "id": 2,
       "name": "ERROR_HANDLING",
       "status": "FAIL",
-      "finding": "No try/except blocks around pipeline stages.",
-      "fix": "Wrap each pipeline stage in try/except blocks."
+      "evidence": "No try/except blocks found around pipeline stages.",
+      "finding": "Bare function calls with no error handling.",
+      "fix": "Wrap pipeline stages in try/except blocks."
     },
     {
       "id": 3,
       "name": "PARTITION_PRUNING",
       "status": "PASS",
-      "finding": "Read operations are filtered by date/partition column.",
-      "fix": "None needed."
+      "evidence": "transactions_bronze_df = (transactions_bronze_df.withColumn(\"transaction_amount\", col(\"transaction_amount\").cast(DecimalType(18,2))).withColumn(\"transaction_date\", col(\"transaction_date\").cast(TimestampType())).where((col(\"payment_status\") == \"COMPLETED\") & (col(\"transaction_amount\") > 0) & (col(\"promo_id\").isNotNull()) & (col(\"transaction_id\").isNotNull())))",
+      "finding": "Filters present on date/partition columns.",
+      "fix": "None required."
     },
     {
       "id": 4,
       "name": "ROW_COUNT_LOGGING",
       "status": "WARN",
-      "finding": "No row count logging after transformation stages.",
-      "fix": "Add logging statements to log row counts after each transformation."
+      "evidence": "No .count() or logging statements found after transformations.",
+      "finding": "No row count logging present.",
+      "fix": "Add.count() or logging statements after key transformations."
     },
     {
       "id": 5,
       "name": "BUSINESS_RULES",
       "status": "PASS",
-      "finding": "Revenue is calculated as SUM(amount) WHERE status='COMPLETED'.",
-      "fix": "None needed."
+      "evidence": "merchant_performance_df = (completed_transactions_df.groupBy(\"merchant_id\", \"merchant_name\", \"category\", \"city\", \"transaction_date\").agg(sum(\"transaction_amount\").alias(\"total_revenue\"), count(\"*\").alias(\"txn_count\"), (count(when(col(\"payment_status\") == \"FAILED\", 1)) / count(\"*\") * 100).alias(\"failure_rate_pct\")))",
+      "finding": "Aggregations filter by status='COMPLETED'.",
+      "fix": "None required."
     },
     {
       "id": 6,
       "name": "NULL_HANDLING",
-      "status": "WARN",
-      "finding": "No NULL checks on primary key and critical columns.",
-      "fix": "Add NULL checks on primary key and critical columns."
+      "status": "PASS",
+      "evidence": "transactions_silver_df = (transactions_silver_df.dropDuplicates([\"transaction_id\"]).orderBy(col(\"ingestion_timestamp\").desc()).withWatermark(\"ingestion_timestamp\", \"1 hour\"))",
+      "finding": ".dropDuplicates() used for null handling.",
+      "fix": "None required."
     },
     {
       "id": 7,
       "name": "BROADCAST_HINT",
       "status": "PASS",
-      "finding": "broadcast() is used on the merchant dimension join.",
-      "fix": "None needed."
+      "evidence": "merchants_df = (spark.read.format(\"parquet\").load(merchants_path).hint(\"broadcast\"))",
+      "finding": "Broadcast hint used on join.",
+      "fix": "None required."
     },
     {
       "id": 8,
       "name": "HARDCODED_PATHS",
-      "status": "FAIL",
-      "finding": "File paths are hardcoded as strings.",
-      "fix": "Replace hardcoded paths with parameters."
+      "status": "PASS",
+      "evidence": "Paths come from os.environ variables.",
+      "finding": "No hardcoded paths found.",
+      "fix": "None required."
     },
     {
       "id": 9,
       "name": "SCHEMA_VALIDATION",
       "status": "WARN",
-      "finding": "No schema validation before transforming.",
-      "fix": "Add schema validation to check expected columns."
+      "evidence": "No schema validation found before transformations.",
+      "finding": "Transformations happen without prior schema check.",
+      "fix": "Add schema validation before transformations."
     },
     {
       "id": 10,
       "name": "DEDUPLICATION",
       "status": "PASS",
-      "finding": "Explicit dedup logic on transaction_id is present.",
-      "fix": "None needed."
+      "evidence": "transactions_silver_df = (transactions_silver_df.dropDuplicates([\"transaction_id\"]))",
+      "finding": "Deduplication logic present.",
+      "fix": "None required."
     },
     {
       "id": 11,
       "name": "METADATA_OUTPUT",
       "status": "PASS",
-      "finding": "Pipeline writes a run summary JSON at the end.",
-      "fix": "None needed."
+      "evidence": "spark.sparkContext.parallelize([run_metadata]).write.json(f\"{gold_output_dir}/run_metadata\")",
+      "finding": "Metadata output present.",
+      "fix": "None required."
     },
     {
       "id": 12,
       "name": "IMPORTS",
       "status": "PASS",
-      "finding": "All imports are present and specific.",
-      "fix": "None needed."
+      "evidence": "No wildcard imports found.",
+      "finding": "No violations found.",
+      "fix": "None required."
     }
   ],
   "summary": {
-    "pass_count": 7,
-    "fail_count": 2,
-    "warn_count": 3,
+    "pass_count": 10,
+    "fail_count": 1,
+    "warn_count": 2,
     "merge_recommendation": "APPROVE_WITH_CHANGES",
     "top_3_fixes": [
-      "Add try/except blocks around each pipeline stage.",
-      "Replace hardcoded paths with parameters.",
-      "Add row count logging after each transformation stage."
+      "Add try/except blocks around pipeline stages.",
+      "Add.count() or logging statements after key transformations.",
+      "Add schema validation before transformations."
     ]
   },
   "reviewed_file": "pipeline_brain/generated_pipeline.py",
-  "reviewed_at": "2026-05-26T11:43:48.012685+00:00",
+  "reviewed_at": "2026-05-26T12:05:48.844697+00:00",
   "model": "amazon.nova-pro-v1:0"
 }
