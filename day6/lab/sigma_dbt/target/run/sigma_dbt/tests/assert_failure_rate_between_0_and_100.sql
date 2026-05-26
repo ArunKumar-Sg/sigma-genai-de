@@ -1,3 +1,29 @@
+
+    
+    select
+      count(*) as failures,
+      count(*) != 0 as should_warn,
+      count(*) != 0 as should_error
+    from (
+      
+    
+  with __dbt__cte__stg_transactions as (
+WITH cleaned_transactions AS (
+    SELECT
+        LOWER(transaction_id)   AS transaction_id,
+        CAST(amount AS DECIMAL(10, 2)) AS amount,
+        UPPER(status)           AS status,
+        LOWER(merchant_id)      AS merchant_id,
+        LOWER(customer_id)      AS customer_id,
+        CAST(transaction_date AS DATE) AS transaction_date,
+        UPPER(payment_method)   AS payment_method,
+        CURRENT_TIMESTAMP       AS loaded_at
+    FROM SIGMA_DE.PUBLIC.fact_transactions
+    WHERE NOT merchant_id LIKE 'TEST_%'
+)
+
+SELECT * FROM cleaned_transactions
+),  __dbt__cte__mart_merchant_performance as (
 WITH filtered_transactions AS (
     SELECT
         transaction_id,
@@ -7,7 +33,7 @@ WITH filtered_transactions AS (
         customer_id,
         transaction_date,
         payment_method
-    FROM {{ ref('stg_transactions') }}
+    FROM __dbt__cte__stg_transactions
     WHERE status IN ('COMPLETED', 'FAILED')
 ),
 
@@ -17,7 +43,7 @@ merchant_details AS (
         merchant_name,
         category,
         city
-    FROM {{ source('sigma_de', 'dim_merchant') }}
+    FROM SIGMA_DE.PUBLIC.dim_merchant
 ),
 
 aggregated_metrics AS (
@@ -50,3 +76,18 @@ SELECT
     am.unique_customers
 FROM aggregated_metrics am
 JOIN merchant_details md ON am.merchant_id = md.merchant_id
+) -- Bonus Challenge: test that failure_rate_pct is always between 0 and 100.
+-- dbt singular test: returns rows that VIOLATE the condition.
+-- If this query returns 0 rows → test PASSES.
+-- If it returns any rows   → test FAILS (bad data detected).
+
+SELECT
+    merchant_id,
+    failure_rate_pct
+FROM __dbt__cte__mart_merchant_performance
+WHERE failure_rate_pct < 0
+   OR failure_rate_pct > 100
+  
+  
+      
+    ) dbt_internal_test

@@ -1,93 +1,53 @@
 version: 2
 
-mart_transaction_metrics:
-  description: "Metrics derived from transaction data including revenue, failure rate, and merchant details."
-  columns:
-    - name: transaction_id
-      description: "Unique identifier for each transaction."
-      tests:
-        - not_null
-        - unique
-    - name: amount
-      description: "Amount of the transaction in USD."
-      tests:
-        - not_null
-    - name: status
-      description: "Status of the transaction (COMPLETED, FAILED, PENDING)."
-      tests:
-        - accepted_values:
-            values: ['COMPLETED', 'FAILED', 'PENDING']
-        - not_null
-    - name: merchant_id
-      description: "Foreign key referencing the merchant dimension table."
-      tests:
-        - not_null
-        - relationships:
-            to: ref('dim_merchant')
-            field: merchant_id
-    - name: customer_id
-      description: "Foreign key referencing the customer dimension table."
-      tests:
-        - not_null
-        - relationships:
-            to: ref('dim_customer')
-            field: customer_id
-    - name: transaction_date
-      description: "Date of the transaction."
-      tests:
-        - not_null
-    - name: payment_method
-      description: "Payment method used for the transaction (CREDIT_CARD, DEBIT_CARD, UPI)."
-      tests:
-        - not_null
-    - name: merchant_name
-      description: "Name of the merchant from the dim_merchant table."
-      tests:
-        - not_null
-    - name: total_revenue
-      description: "Total revenue from completed transactions."
-      tests:
-        - not_null
-        - generic_test:
-            function: "test_total_revenue_gte_zero"
-    - name: failure_rate_pct
-      description: "Failure rate of transactions as a percentage."
-      tests:
-        - not_null
-        - generic_test:
-            function: "test_failure_rate_between_0_and_100"
-    - name: invalid_status_count
-      description: "Count of transactions with invalid statuses (should be 0)."
-      tests:
-        - generic_test:
-            function: "test_invalid_status_count_is_zero"
-```
-
-```sql
--- tests/test_total_revenue_gte_zero.sql
-select
-  count(*) as total_rows
-from
-  {{ ref('mart_transaction_metrics') }}
-where
-  total_revenue < 0
-```
-
-```sql
--- tests/test_failure_rate_between_0_and_100.sql
-select
-  count(*) as total_rows
-from
-  {{ ref('mart_transaction_metrics') }}
-where
-  failure_rate_pct < 0 or failure_rate_pct > 100
-```
-
-```sql
--- tests/test_invalid_status_count_is_zero.sql
-select
-  count(*) as total_rows
-from
-  {{ ref('mart_transaction_metrics') }}
-where
-  invalid_status_count > 0
+models:
+  - name: mart_merchant_performance
+    description: "Aggregated merchant KPIs: revenue, failure rate, transaction counts, and unique customers"
+    columns:
+      - name: merchant_id
+        description: "Unique identifier for the merchant"
+        tests:
+          - not_null
+          - unique
+      - name: merchant_name
+        description: "Name of the merchant"
+        tests:
+          - not_null
+      - name: category
+        description: "Merchant category"
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values:
+                  - "Food Delivery"
+                  - "E-Commerce"
+                  - "Entertainment"
+                  - "Travel"
+                  - "Grocery"
+      - name: city
+        description: "City where the merchant is located"
+        tests:
+          - not_null
+      - name: total_revenue
+        description: "Total revenue from COMPLETED transactions"
+        tests:
+          - not_null
+      - name: total_transactions
+        description: "Total number of transactions (COMPLETED + FAILED)"
+        tests:
+          - not_null
+      - name: failed_count
+        description: "Number of FAILED transactions"
+        tests:
+          - not_null
+      - name: failure_rate_pct
+        description: "Failure rate as a percentage (0–100)"
+        tests:
+          - not_null
+      - name: avg_transaction_value
+        description: "Average value of COMPLETED transactions"
+      - name: unique_customers
+        description: "Number of distinct customers who transacted"
+        tests:
+          - not_null

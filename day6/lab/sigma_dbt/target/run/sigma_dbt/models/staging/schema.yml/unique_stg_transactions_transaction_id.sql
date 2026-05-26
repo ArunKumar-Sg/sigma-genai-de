@@ -1,3 +1,17 @@
+
+    
+    select
+      count(*) as failures,
+      count(*) != 0 as should_warn,
+      count(*) != 0 as should_error
+    from (
+      
+    
+  
+    
+    
+
+with __dbt__cte__stg_transactions as (
 WITH cleaned_transactions AS (
     SELECT
         LOWER(transaction_id)   AS transaction_id,
@@ -8,8 +22,23 @@ WITH cleaned_transactions AS (
         CAST(transaction_date AS DATE) AS transaction_date,
         UPPER(payment_method)   AS payment_method,
         CURRENT_TIMESTAMP       AS loaded_at
-    FROM {{ source('sigma_de', 'fact_transactions') }}
+    FROM SIGMA_DE.PUBLIC.fact_transactions
     WHERE NOT merchant_id LIKE 'TEST_%'
 )
 
 SELECT * FROM cleaned_transactions
+) select
+    transaction_id as unique_field,
+    count(*) as n_records
+
+from __dbt__cte__stg_transactions
+where transaction_id is not null
+group by transaction_id
+having count(*) > 1
+
+
+
+  
+  
+      
+    ) dbt_internal_test

@@ -8,7 +8,7 @@ WITH cleaned_transactions AS (
         CAST(transaction_date AS DATE) AS transaction_date,
         UPPER(payment_method)   AS payment_method,
         CURRENT_TIMESTAMP       AS loaded_at
-    FROM {{ source('sigma_de', 'fact_transactions') }}
+    FROM SIGMA_DE.PUBLIC.fact_transactions
     WHERE NOT merchant_id LIKE 'TEST_%'
 )
 
