@@ -1,0 +1,37 @@
+{
+  "sprint": "ci_slo",
+  "generated_at": "2026-05-28T11:39:55.187807",
+  "models_used": {
+    "workflow_generation": "amazon.nova-pro-v1:0",
+    "slo_generation": "amazon.nova-pro-v1:0",
+    "alert_generation": "amazon.nova-lite-v1:0"
+  },
+  "token_usage": {
+    "ci_workflow": {
+      "input": 469,
+      "output": 464
+    },
+    "slo_definitions": {
+      "input": 473,
+      "output": 295
+    },
+    "alert_rules": {
+      "input": 556,
+      "output": 737
+    }
+  },
+  "files_generated": [
+    "devops_brain/pipeline_ci.yml",
+    "devops_brain/slo_definitions.json",
+    "devops_brain/alert_rules.json",
+    "devops_brain/ci_slo_report.json"
+  ],
+  "ci_workflow_lines": 57,
+  "slo_count": 4,
+  "alert_count": {
+    "CRITICAL": 3,
+    "WARNING": 3,
+    "INFO": 2
+  },
+  "student_judgment": "The pipeline success rate SLO is the most important to alert on first because if the pipeline fails, every downstream dashboard serves stale or missing data and no other SLO check even runs."
+}

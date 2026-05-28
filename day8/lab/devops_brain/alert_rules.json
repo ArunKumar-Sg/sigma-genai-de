@@ -1,0 +1,64 @@
+{
+  "CRITICAL": [
+    {
+      "name": "data_freshness_breach",
+      "condition": "Data freshness is more than 24 hours old",
+      "threshold": "24",
+      "message": "Data freshness has breached the 24-hour SLO. Stale data is affecting financial reports.",
+      "recommended_action": "Investigate and resolve the data pipeline issue immediately."
+    },
+    {
+      "name": "quality_threshold_breach",
+      "condition": "Data quality percentage is below 99.9%",
+      "threshold": "99.9",
+      "message": "Data quality has breached the 99.9% SLO. Inaccurate financial reports are being generated.",
+      "recommended_action": "Investigate and resolve the data quality issue immediately."
+    },
+    {
+      "name": "row_count_out_of_bounds",
+      "condition": "Row count is outside the 17-25 range",
+      "threshold": "17, 25",
+      "message": "Row count is outside the acceptable bounds of 17-25. Transaction volume is not within expected variance.",
+      "recommended_action": "Investigate and resolve the row count anomaly immediately."
+    }
+  ],
+  "WARNING": [
+    {
+      "name": "runtime_approaching_limit",
+      "condition": "Pipeline runtime is approaching the 120-minute limit",
+      "threshold": "120",
+      "message": "Pipeline runtime is approaching the 120-minute SLO limit. Fresh data may be delayed.",
+      "recommended_action": "Monitor the pipeline runtime and take action if it exceeds the limit."
+    },
+    {
+      "name": "quality_slightly_below_threshold",
+      "condition": "Data quality percentage is slightly below 99.9%",
+      "threshold": "99.85",
+      "message": "Data quality is slightly below the 99.9% SLO. Financial reports may be slightly inaccurate.",
+      "recommended_action": "Investigate and address the data quality issue at the next business day."
+    },
+    {
+      "name": "merchant_failure_rate_spike",
+      "condition": "One merchant's failure rate spikes above 30%",
+      "threshold": "30",
+      "message": "A merchant's failure rate has spiked above 30%. Investigate the cause.",
+      "recommended_action": "Investigate and resolve the issue with the merchant's data processing."
+    }
+  ],
+  "INFO": [
+    {
+      "name": "new_payment_method_detected",
+      "condition": "A new payment method is detected in the data",
+      "threshold": "N/A",
+      "message": "A new payment method has been detected in the data. Update the system to handle the new method.",
+      "recommended_action": "Log the new payment method and update the system as needed."
+    },
+    {
+      "name": "row_count_near_bounds",
+      "condition": "Daily row count is near the 17-25 bounds",
+      "threshold": "17, 25",
+      "message": "Daily row count is near the acceptable bounds of 17-25. Monitor for any anomalies.",
+      "recommended_action": "Log the row count and monitor for any further anomalies."
+    }
+  ]
+}
