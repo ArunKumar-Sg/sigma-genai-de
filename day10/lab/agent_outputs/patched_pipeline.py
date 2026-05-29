@@ -1,15 +1,12 @@
-# Patched by Self-Healing Agent — 2026-05-29T17:52:32.029371
-# Attempts needed: 2
+# Patched by Self-Healing Agent — 2026-05-29T17:46:49.978643
+# Attempts needed: 5
 
-import duckdb, os, pandas as pd
+import duckdb
+import pandas as pd
 
-DB_PATH = os.path.join(os.path.dirname(__file__), "sigma_platform.duckdb")
+DB_PATH = r"/Users/as-mac-1184/Desktop/GenAI_Training/sigma-genai-de/day10/lab/sigma_platform.duckdb"
 
 def run_merchant_report():
-    if not os.path.exists(DB_PATH):
-        print(f"Database {DB_PATH} does not exist. Please create it first.")
-        return
-
     conn = duckdb.connect(DB_PATH, read_only=False)
     df = conn.execute("SELECT * FROM silver_transactions WHERE amount > 0").fetchdf()
 
@@ -18,7 +15,8 @@ def run_merchant_report():
     df2 = df.groupby("merchant_id").agg({"amount": "mean"}).reset_index()
     df2.columns = ["merchant_id", "avg_amount"]
 
-    conn.execute("CREATE TABLE report AS SELECT * FROM df2")
+    conn.execute("CREATE TABLE IF NOT EXISTS report (merchant_id TEXT, avg_amount DOUBLE)")
+    conn.executemany("INSERT INTO report VALUES (?,?)", df2.values.tolist())
 
     conn.close()
     print(f"Done. Total: {total:.2f}, Merchants: {len(df2)}")
